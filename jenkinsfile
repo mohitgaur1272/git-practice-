@@ -1,0 +1,51 @@
+pipeline {
+    agent any
+
+    environment {
+        // Jenkins credentials ID for SSH private key
+        SSH_CREDENTIALS = 'server-ssh-key'
+        // Destination path
+        DEST_PATH = '/var/www/html/' 
+        // Branch Name
+        BRANCH = 'main'
+        SERVER_LIST_FILE = '/var/lib/jenkins/servers.txt'
+    }
+
+    stages {
+        stage('Checkout Code') {
+            steps {
+                script {
+                    echo "Checking out code from branch: ${BRANCH}"
+                    git branch: "${BRANCH}", url: 'https://github.com/mohitgaur1272/git-practice-.git'
+                }
+            }
+        }
+
+        stage('Deploy to Servers') {
+            steps {
+                script {
+                    def servers = readFile(SERVER_LIST_FILE).split("\n").collect { it.trim() }
+                    servers.each { server ->
+                        echo "Deploying to server: ${server}"
+
+                        sshagent([SSH_CREDENTIALS]) {
+                            // SCP command with user and correct path
+                            sh """
+                                scp -r * ec2-user@${server}:${DEST_PATH}
+                            """
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo 'Deployment successful!'
+        }
+        failure {
+            echo 'Deployment failed!'
+        }
+    }
+}
